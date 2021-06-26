@@ -19,11 +19,11 @@ type Credential struct {
 }
 
 type DnsmasqLease struct {
-  ExpirationTime   int
-  MAC              string
-  IP               string
-  Hostname         string
-  ClientIdentifier string
+  ExpirationTime   int    `yaml:"ExpirationTime"`
+  MAC              string `yaml:"MAC"`
+  IP               string `yaml:"IP"`
+  Hostname         string `yaml:"Hostname"`
+  ClientIdentifier string `yaml:"ClientIdentifier"`
 }
 
 
