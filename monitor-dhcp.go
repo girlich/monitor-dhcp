@@ -40,7 +40,6 @@ func dnsmasq_get(credentials *Credential, leases *[]DnsmasqLease) {
     if err == io.EOF {
       break
     }
-    fmt.Printf(">>%s<<\n", string(line))
     var lease DnsmasqLease
     fmt.Sscanf(string(line), "%d %s %s %s %s", &lease.ExpirationTime, &lease.MAC, &lease.IP, &lease.Hostname, &lease.ClientIdentifier)
     *leases = append(*leases, lease)
@@ -62,6 +61,8 @@ func main() {
       case "dnsmasq":
         var Data []DnsmasqLease
         dnsmasq_get(&credentials[i],&Data)
+        DataB, _ := yaml.Marshal(&Data)
+        fmt.Println(string(DataB))
       default:
         fmt.Fprintf(os.Stderr, "unknown DHCP type: %s\n", credentials[i].Type)
     }
