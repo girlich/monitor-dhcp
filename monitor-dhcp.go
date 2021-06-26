@@ -19,7 +19,7 @@ type Credential struct {
 }
 
 type DHCPLease struct {
-  ExpirationTime   int    `yaml:"ExpirationTime"`
+  ExpirationTime   int64  `yaml:"ExpirationTime"`
   MAC              string `yaml:"MAC"`
   IP               string `yaml:"IP"`
   Hostname         string `yaml:"Hostname"`
