@@ -18,8 +18,8 @@ type Credential struct {
   Command []string `yaml:"command"`
 }
 
-type DnsmasqLeases struct {
-  Time             int
+type DnsmasqLease struct {
+  ExpirationTime   int
   MAC              string
   IP               string
   Hostname         string
@@ -27,7 +27,7 @@ type DnsmasqLeases struct {
 }
 
 
-func dnsmasq_get(credentials *Credential, leases *DnsmasqLeases) {
+func dnsmasq_get(credentials *Credential, leases *[]DnsmasqLease) {
   cmd := exec.Command(credentials.Command[0], credentials.Command[1:]...)
   stdout, err := cmd.StdoutPipe()
   if err != nil {
@@ -41,6 +41,9 @@ func dnsmasq_get(credentials *Credential, leases *DnsmasqLeases) {
       break
     }
     fmt.Printf(">>%s<<\n", string(line))
+    var lease DnsmasqLease
+    fmt.Sscanf(string(line), "%d %s %s %s %s", &lease.ExpirationTime, &lease.MAC, &lease.IP, &lease.Hostname, &lease.ClientIdentifier)
+    *leases = append(*leases, lease)
   }
 }
 
@@ -57,7 +60,7 @@ func main() {
   for i := 0 ; i<len(credentials) ; i++ {
     switch credentials[i].Type {
       case "dnsmasq":
-        var Data DnsmasqLeases
+        var Data []DnsmasqLease
         dnsmasq_get(&credentials[i],&Data)
       default:
         fmt.Fprintf(os.Stderr, "unknown DHCP type: %s\n", credentials[i].Type)
