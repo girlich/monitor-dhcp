@@ -18,7 +18,7 @@ type Credential struct {
   Command []string `yaml:"command"`
 }
 
-type DnsmasqLease struct {
+type DHCPLease struct {
   ExpirationTime   int    `yaml:"ExpirationTime"`
   MAC              string `yaml:"MAC"`
   IP               string `yaml:"IP"`
@@ -27,7 +27,7 @@ type DnsmasqLease struct {
 }
 
 
-func dnsmasq_get(credentials *Credential, leases *[]DnsmasqLease) {
+func dnsmasq_get(credentials *Credential, leases *[]DHCPLease) {
   cmd := exec.Command(credentials.Command[0], credentials.Command[1:]...)
   stdout, err := cmd.StdoutPipe()
   if err != nil {
@@ -40,7 +40,7 @@ func dnsmasq_get(credentials *Credential, leases *[]DnsmasqLease) {
     if err == io.EOF {
       break
     }
-    var lease DnsmasqLease
+    var lease DHCPLease
     fmt.Sscanf(string(line), "%d %s %s %s %s", &lease.ExpirationTime, &lease.MAC, &lease.IP, &lease.Hostname, &lease.ClientIdentifier)
     *leases = append(*leases, lease)
   }
@@ -56,16 +56,16 @@ func main() {
   var credentials []Credential
   yaml.Unmarshal(byteValue, &credentials)
 
+  var Data []DHCPLease
   for i := 0 ; i<len(credentials) ; i++ {
     switch credentials[i].Type {
       case "dnsmasq":
-        var Data []DnsmasqLease
         dnsmasq_get(&credentials[i],&Data)
-        DataB, _ := yaml.Marshal(&Data)
-        fmt.Println(string(DataB))
       default:
         fmt.Fprintf(os.Stderr, "unknown DHCP type: %s\n", credentials[i].Type)
     }
   }
+  DataB, _ := yaml.Marshal(&Data)
+  fmt.Println(string(DataB))
 }
 
