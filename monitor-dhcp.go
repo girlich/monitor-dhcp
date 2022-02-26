@@ -2,13 +2,17 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gopkg.in/yaml.v2"
 )
 
@@ -45,7 +49,68 @@ func dnsmasq_get(credentials *Credential, leases *[]DHCPLease) {
 	}
 }
 
+func CollectDHCPLeases(credentials []Credential, DHCPLeases *[]DHCPLease) {
+	for i := 0; i < len(credentials); i++ {
+		switch credentials[i].Type {
+		case "dnsmasq":
+			dnsmasq_get(&credentials[i], DHCPLeases)
+		default:
+			fmt.Fprintf(os.Stderr, "unknown DHCP type: %s\n", credentials[i].Type)
+		}
+	}
+}
+
+type LeaseCollector struct {
+	Credentials []Credential
+}
+
+var (
+	dhcpExpirationTime = prometheus.NewDesc(
+		"dhcp_expiration_time",
+		"Time, when the lease expires",
+		[]string{
+			"mac",
+			"ip",
+			"name"},
+		nil,
+	)
+)
+
+func (lc LeaseCollector) Describe(ch chan<- *prometheus.Desc) {
+        prometheus.DescribeByCollect(lc, ch)
+}
+
+func (lc LeaseCollector) Collect(ch chan<- prometheus.Metric) {
+        var DHCPLeases []DHCPLease
+        CollectDHCPLeases(lc.Credentials, &DHCPLeases)
+
+        for _, dl := range DHCPLeases {
+                ch <- prometheus.MustNewConstMetric(
+                dhcpExpirationTime,
+                prometheus.GaugeValue,
+                float64(dl.ExpirationTime),
+                dl.MAC,
+                dl.IP,
+                dl.Hostname,
+                )
+	}
+}
+
+func prometheusListen(listen string, credentials []Credential) {
+	registry := prometheus.NewRegistry()
+	fmt.Println("listen on " + listen)
+	wc := LeaseCollector{Credentials: credentials}
+	registry.MustRegister(wc)
+	handler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
+	http.Handle("/metrics", handler)
+	log.Fatal(http.ListenAndServe(listen, nil))
+}
+
 func main() {
+	var listen string
+	flag.StringVar(&listen, "listen", "", "thing to listen on (like :1234) for Prometheus requests")
+	flag.Parse()
+
 	// Read credentials
 	byteValue, err := ioutil.ReadAll(os.Stdin)
 	if err != nil {
@@ -55,15 +120,12 @@ func main() {
 	var credentials []Credential
 	yaml.Unmarshal(byteValue, &credentials)
 
-	var Data []DHCPLease
-	for i := 0; i < len(credentials); i++ {
-		switch credentials[i].Type {
-		case "dnsmasq":
-			dnsmasq_get(&credentials[i], &Data)
-		default:
-			fmt.Fprintf(os.Stderr, "unknown DHCP type: %s\n", credentials[i].Type)
-		}
+	if listen == "" {
+		var Data []DHCPLease
+		CollectDHCPLeases(credentials, &Data)
+		DataB, _ := yaml.Marshal(&Data)
+		fmt.Println(string(DataB))
+	} else {
+		prometheusListen(listen, credentials)
 	}
-	DataB, _ := yaml.Marshal(&Data)
-	fmt.Println(string(DataB))
 }
