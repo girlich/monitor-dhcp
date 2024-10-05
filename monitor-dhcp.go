@@ -36,7 +36,9 @@ func dnsmasq_get(credentials *Credential, leases *[]DHCPLease) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	cmd.Start()
+	if err := cmd.Start(); err != nil {
+		log.Fatal(err)
+	}
 	buf := bufio.NewReader(stdout)
 	for {
 		line, _, err := buf.ReadLine()
@@ -46,6 +48,9 @@ func dnsmasq_get(credentials *Credential, leases *[]DHCPLease) {
 		var lease DHCPLease
 		fmt.Sscanf(string(line), "%d %s %s %s %s", &lease.ExpirationTime, &lease.MAC, &lease.IP, &lease.Hostname, &lease.ClientIdentifier)
 		*leases = append(*leases, lease)
+	}
+	if err := cmd.Wait(); err != nil {
+		log.Fatal(err)
 	}
 }
 
